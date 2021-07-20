@@ -1,5 +1,5 @@
 {
-  "name": "kafkajs",
+  "name": "@aikoven/kafkajs",
   "version": "1.15.0",
   "description": "A modern Apache Kafka client for node.js",
   "author": "Tulio Ornelas <ornelas.tulio@gmail.com>",
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tulios/kafkajs.git"
+    "url": "https://github.com/aikoven/kafkajs.git"
   },
   "bugs": {
     "url": "https://github.com/tulios/kafkajs/issues"
