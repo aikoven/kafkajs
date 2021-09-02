@@ -9,12 +9,11 @@ const {
   createTopic,
   waitForMessages,
 } = require('testHelpers')
-const { KafkaJSError, KafkaJSProtocolError } = require('../../errors')
+const { KafkaJSError } = require('../../errors')
 
 const createProducer = require('../index')
 const createConsumer = require('../../consumer/index')
 const { describe } = require('jest-circus')
-const sleep = require('../../utils/sleep')
 
 const arrayUnique = a => [...new Set(a)]
 
@@ -78,8 +77,7 @@ describe('Producer > Idempotent producer', () => {
       const broker = await cluster.findBroker({ nodeId })
 
       const brokerProduce = jest.spyOn(broker, 'produce')
-      brokerProduce.mockImplementationOnce(async () => {
-        await sleep(5)
+      brokerProduce.mockImplementationOnce(() => {
         throw new KafkaJSError('retriable error')
       })
     }
@@ -143,55 +141,53 @@ describe('Producer > Idempotent producer', () => {
     )
   })
 
-  it('concurrent produce() calls > where produce() throws a retriable error on the first call, all subsequent calls throw UNKNOWN_PRODUCER_ID', async () => {
+  it('concurrent produce() calls > where produce() throws a retriable error on the first call, all messages are written to the partition once', async () => {
     for (const nodeId of [0, 1, 2]) {
       const broker = await cluster.findBroker({ nodeId })
 
       const brokerProduce = jest.spyOn(broker, 'produce')
       brokerProduce.mockImplementationOnce(async () => {
-        await sleep(100)
         throw new KafkaJSError('retriable error')
       })
     }
 
-    const settlements = await PromiseAllSettled(
+    await PromiseAllSettled(
       messages.map(m => producer.send({ acks: -1, topic: topicName, messages: [m] }))
-    ).catch(e => e)
+    )
 
-    settlements
-      .filter(({ status }) => status === 'rejected')
-      .forEach(({ reason }) => {
-        expect(reason).toBeInstanceOf(KafkaJSProtocolError)
-        expect(reason.type).toBe('UNKNOWN_PRODUCER_ID')
-      })
+    const messagesConsumed = []
+    await consumer.run({ eachMessage: async message => messagesConsumed.push(message) })
 
-    expect(settlements.filter(({ status }) => status === 'fulfilled')).toHaveLength(1)
+    await waitForMessages(messagesConsumed, { number: messages.length })
+
+    expect(arrayUnique(messagesConsumed.map(({ message: { value } }) => value))).toHaveLength(
+      messages.length
+    )
   })
 
-  it('concurrent produce() calls > where produce() throws a retriable error on 2nd call, all subsequent calls throw OUT_OF_ORDER_SEQUENCE_NUMBER', async () => {
+  it('concurrent produce() calls > where produce() throws a retriable error on 2nd call, all messages are written to the partition once', async () => {
     for (const nodeId of [0, 1, 2]) {
       const broker = await cluster.findBroker({ nodeId })
 
       const brokerProduce = jest.spyOn(broker, 'produce')
       brokerProduce.mockImplementationOnce()
       brokerProduce.mockImplementationOnce(async () => {
-        await sleep(1)
         throw new KafkaJSError('retriable error')
       })
     }
 
-    const settlements = await PromiseAllSettled(
+    await PromiseAllSettled(
       messages.map(m => producer.send({ acks: -1, topic: topicName, messages: [m] }))
-    ).catch(e => e)
+    )
 
-    settlements
-      .filter(({ status }) => status === 'rejected')
-      .forEach(({ reason }) => {
-        expect(reason).toBeInstanceOf(KafkaJSProtocolError)
-        expect(reason.type).toBe('OUT_OF_ORDER_SEQUENCE_NUMBER')
-      })
+    const messagesConsumed = []
+    await consumer.run({ eachMessage: async message => messagesConsumed.push(message) })
 
-    expect(settlements.filter(({ status }) => status === 'fulfilled')).toHaveLength(2)
+    await waitForMessages(messagesConsumed, { number: messages.length })
+
+    expect(arrayUnique(messagesConsumed.map(({ message: { value } }) => value))).toHaveLength(
+      messages.length
+    )
   })
 
   it('concurrent produce() calls > where produce() throws a retriable error after the message is written to the log, all messages are written to the partition once', async () => {
