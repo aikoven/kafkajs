@@ -1,6 +1,6 @@
 {
   "name": "@aikoven/kafkajs",
-  "version": "1.15.0-fork.3",
+  "version": "1.15.0-fork.4",
   "description": "A modern Apache Kafka client for node.js",
   "author": "Tulio Ornelas <ornelas.tulio@gmail.com>",
   "main": "index.js",
