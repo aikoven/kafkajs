@@ -66,6 +66,8 @@ module.exports = class Broker {
     const lockTimeout = 2 * this.connection.connectionTimeout + this.authenticationTimeout
     this.brokerAddress = `${this.connection.host}:${this.connection.port}`
 
+    this.logger.info('Creating broker', { nodeId, host: connection.host })
+
     this.lock = new Lock({
       timeout: lockTimeout,
       description: `connect to broker ${this.brokerAddress}`,
@@ -94,6 +96,8 @@ module.exports = class Broker {
       if (this.isConnected()) {
         return
       }
+
+      this.logger.debug('Connecting broker')
 
       this.authenticatedAt = null
       await this.connection.connect()
@@ -140,6 +144,7 @@ module.exports = class Broker {
    * @returns {Promise}
    */
   async disconnect() {
+    this.logger.debug('Disconnecting broker')
     this.authenticatedAt = null
     await this.connection.disconnect()
   }

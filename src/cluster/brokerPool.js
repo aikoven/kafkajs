@@ -68,8 +68,12 @@ module.exports = class BrokerPool {
 
   async createSeedBroker() {
     if (this.seedBroker) {
+      this.logger.debug('Disconnecting previous seed broker')
+
       await this.seedBroker.disconnect()
     }
+
+    this.logger.debug('Creating seed broker')
 
     this.seedBroker = this.createBroker({
       connection: await this.connectionBuilder.build(),
@@ -86,11 +90,14 @@ module.exports = class BrokerPool {
       return
     }
 
+    this.logger.debug('Connecting pool')
+
     if (!this.seedBroker) {
       await this.createSeedBroker()
     }
 
     return this.retrier(async (bail, retryCount, retryTime) => {
+      this.logger.debug('Connecting seed broker')
       try {
         await this.seedBroker.connect()
         this.versions = this.seedBroker.versions
@@ -103,7 +110,11 @@ module.exports = class BrokerPool {
             { retryCount, retryTime }
           )
         } else {
-          this.logger.error(e.message, { retryCount, retryTime })
+          this.logger.error(`Failed to connect to seed broker: ${e.message}`, {
+            retryCount,
+            retryTime,
+            retriable: !!e.retriable,
+          })
         }
 
         if (e.retriable) throw e
@@ -133,6 +144,7 @@ module.exports = class BrokerPool {
    * @param {number} destination.port
    */
   removeBroker({ host, port }) {
+    this.logger.debug('Removing broker', { host, port })
     const removedBroker = values(this.brokers).find(
       broker => broker.connection.host === host && broker.connection.port === port
     )
@@ -153,6 +165,8 @@ module.exports = class BrokerPool {
    * @returns {Promise<null>}
    */
   async refreshMetadata(topics) {
+    this.logger.debug('Refreshing metadata', { topics })
+
     const broker = await this.findConnectedBroker()
     const { host: seedHost, port: seedPort } = this.seedBroker.connection
 
@@ -199,6 +213,12 @@ module.exports = class BrokerPool {
         const freshBrokerIds = this.metadata.brokers.map(({ nodeId }) => `${nodeId}`).sort()
         const currentBrokerIds = keys(this.brokers).sort()
         const unusedBrokerIds = arrayDiff(currentBrokerIds, freshBrokerIds)
+
+        this.logger.debug('Refreshed brokers', {
+          freshBrokerIds,
+          currentBrokerIds,
+          unusedBrokerIds,
+        })
 
         const brokerDisconnects = unusedBrokerIds.map(nodeId => {
           const broker = this.brokers[nodeId]

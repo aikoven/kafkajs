@@ -10,6 +10,8 @@ const { CONNECTION_STATUS, CONNECTED_STATUS } = require('./connectionStatus')
 const requestInfo = ({ apiName, apiKey, apiVersion }) =>
   `${apiName}(key: ${apiKey}, version: ${apiVersion})`
 
+let nextId = 0
+
 module.exports = class Connection {
   /**
    * @param {Object} options
@@ -82,9 +84,11 @@ module.exports = class Connection {
     this.authHandlers = null
     this.authExpectResponse = false
 
+    const connectionId = nextId++
+
     const log = level => (message, extra = {}) => {
       const logFn = this.logger[level]
-      logFn(message, { broker: this.broker, clientId, ...extra })
+      logFn(message, { broker: this.broker, clientId, connectionId, ...extra })
     }
 
     this.logDebug = log('debug')

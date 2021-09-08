@@ -144,6 +144,7 @@ module.exports = class Cluster {
    * @returns {Promise<void>}
    */
   async connect() {
+    this.logger.debug('Connecting cluster')
     return await this[PRIVATE.CONNECT]()
   }
 
@@ -152,6 +153,7 @@ module.exports = class Cluster {
    * @returns {Promise<void>}
    */
   async disconnect() {
+    this.logger.debug('Disconnecting cluster')
     await this.brokerPool.disconnect()
   }
 
